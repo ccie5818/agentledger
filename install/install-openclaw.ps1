@@ -328,40 +328,62 @@ function Invoke-Onboard {
     }
 }
 
-# Auto-enable the Telegram channel if a bot token is configured.
-# Telegram chat is auto-discovered by the bot the first time the user sends
-# /start to it from Telegram; OpenClaw doesn't take a chat-id at registration.
+# Auto-enable the Telegram channel by writing to ~/.openclaw/openclaw.json.
+# Per https://docs.openclaw.ai/channels/telegram, Telegram is configured via
+# the JSON config file (or TELEGRAM_BOT_TOKEN env var), then the gateway is
+# restarted. There is no `openclaw channels add` for Telegram.
 function Enable-TelegramChannel {
     $token = $cfg['telegram_bot_token']
     if (-not $token) { return }
-    if (-not (Test-Command openclaw) -and $effMethod -ne 'git') {
-        Write-Warning2 "openclaw not on PATH yet; can't auto-enable Telegram. After install, run:"
-        Write-Warning2 "  openclaw channels add --channel telegram --bot-token <token>"
+    if (-not (Test-Command node)) {
+        Write-Warning2 'node not found; cannot merge Telegram config into ~/.openclaw/openclaw.json'
+        Write-Warning2 'Set the token manually:'
+        Write-Warning2 '  - edit %USERPROFILE%\.openclaw\openclaw.json: channels.telegram = { enabled: true, botToken: "..." }'
+        Write-Warning2 '  - or set TELEGRAM_BOT_TOKEN and restart the gateway'
         return
     }
-    Write-Step 'Enabling Telegram channel'
-    $cmdArgs = @('channels', 'add', '--channel', 'telegram', '--bot-token', $token)
+    Write-Step 'Writing Telegram channel config to ~/.openclaw/openclaw.json'
+    $env:TG_TOKEN = $token
+    $nodeScript = @'
+const fs = require("fs");
+const path = require("path");
+const dir = path.join(process.env.USERPROFILE || process.env.HOME, ".openclaw");
+const cfgPath = path.join(dir, "openclaw.json");
+let cfg = {};
+if (fs.existsSync(cfgPath)) {
+  try { cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8")) || {}; }
+  catch (e) { console.error("warn: existing config not valid JSON, overwriting"); }
+}
+cfg.channels = cfg.channels || {};
+cfg.channels.telegram = Object.assign({}, cfg.channels.telegram || {}, {
+  enabled: true,
+  botToken: process.env.TG_TOKEN,
+});
+if (cfg.channels.telegram.dmPolicy === undefined) cfg.channels.telegram.dmPolicy = "pairing";
+fs.mkdirSync(dir, { recursive: true });
+fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+console.log("Telegram channel enabled in", cfgPath);
+'@
     try {
-        if ($effMethod -eq 'git') {
-            Push-Location $effInstallDir
-            & pnpm openclaw @cmdArgs
-        } else {
-            & openclaw @cmdArgs
-        }
-        $code = $LASTEXITCODE
+        & node -e $nodeScript
+        if ($LASTEXITCODE -ne 0) { throw 'node helper failed' }
+        Write-Ok 'Telegram config written.'
+    } catch {
+        Write-Warning2 'Failed to write Telegram config; check ~/.openclaw/openclaw.json manually.'
+        return
     } finally {
-        if ($effMethod -eq 'git') { Pop-Location }
+        Remove-Item Env:\TG_TOKEN -ErrorAction SilentlyContinue
     }
-    if ($code -eq 0) {
-        Write-Ok 'Telegram channel enabled.'
-        if ($TelegramChatId) {
-            Write-Ok 'Note: telegram_chat_id is set in config but not needed at registration.'
-        }
-        Write-Ok 'Now message your bot on Telegram with /start so it can talk back.'
-    } else {
-        Write-Warning2 'Failed to enable Telegram channel. Try manually:'
-        Write-Warning2 '  openclaw channels add --channel telegram --bot-token <token>'
+
+    Write-Step 'Restarting OpenClaw gateway to pick up Telegram'
+    if (Test-Command openclaw) {
+        Write-Ok 'If a gateway is already running in another terminal, stop it (Ctrl+C) and re-run:'
+        Write-Ok '  openclaw gateway'
     }
+
+    Write-Ok 'Next: open Telegram, send /start to your bot, then approve the pairing:'
+    Write-Ok '  openclaw pairing list telegram'
+    Write-Ok '  openclaw pairing approve telegram <CODE>'
 }
 
 # --- main -----------------------------------------------------------------

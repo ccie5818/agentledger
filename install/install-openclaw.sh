@@ -350,35 +350,60 @@ run_onboard() {
     fi
 }
 
-# Auto-enable the Telegram channel if a bot token is configured.
-# Telegram chat is auto-discovered by the bot the first time the user sends
-# /start to it from Telegram; OpenClaw doesn't take a chat-id at registration.
+# Auto-enable the Telegram channel by writing to ~/.openclaw/openclaw.json.
+# Per https://docs.openclaw.ai/channels/telegram, Telegram is configured via
+# the JSON config file (or TELEGRAM_BOT_TOKEN env var), then the gateway is
+# restarted. There is no `openclaw channels add` for Telegram.
 enable_telegram_channel() {
     [[ -z "$TELEGRAM_BOT_TOKEN_CFG" ]] && return 0
-    if ! has openclaw && [[ "$METHOD" != "git" ]]; then
-        warn "openclaw not on PATH yet; can't auto-enable Telegram. After install, run:"
-        warn "  openclaw channels add --channel telegram --bot-token <token>"
+    if ! has node; then
+        warn "node not found; cannot merge Telegram config into ~/.openclaw/openclaw.json"
+        warn "Set the token manually:"
+        warn "  - edit ~/.openclaw/openclaw.json: channels.telegram = { enabled: true, botToken: \"...\" }"
+        warn "  - or export TELEGRAM_BOT_TOKEN and restart the gateway"
         return 0
     fi
-    step "Enabling Telegram channel"
-    local oc_cmd
-    if [[ "$METHOD" == "git" ]]; then
-        oc_cmd=( pnpm openclaw )
-    else
-        oc_cmd=( openclaw )
+    step "Writing Telegram channel config to ~/.openclaw/openclaw.json"
+    # Use a small Node.js helper to merge the Telegram block in without
+    # clobbering any other config the user already has.
+    if ! TG_TOKEN="$TELEGRAM_BOT_TOKEN_CFG" node -e '
+        const fs = require("fs");
+        const path = require("path");
+        const dir = path.join(process.env.HOME, ".openclaw");
+        const cfgPath = path.join(dir, "openclaw.json");
+        let cfg = {};
+        if (fs.existsSync(cfgPath)) {
+            try { cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8")) || {}; }
+            catch (e) { console.error("warn: existing config not valid JSON, overwriting"); }
+        }
+        cfg.channels = cfg.channels || {};
+        cfg.channels.telegram = Object.assign({}, cfg.channels.telegram || {}, {
+            enabled: true,
+            botToken: process.env.TG_TOKEN,
+        });
+        if (cfg.channels.telegram.dmPolicy === undefined) cfg.channels.telegram.dmPolicy = "pairing";
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+        try { fs.chmodSync(cfgPath, 0o600); } catch (e) {}
+        console.log("Telegram channel enabled in", cfgPath);
+    '; then
+        warn "Failed to write Telegram config; check ~/.openclaw/openclaw.json manually."
+        return 0
     fi
-    if ( cd "${INSTALL_DIR:-.}" && "${oc_cmd[@]}" channels add \
-            --channel telegram \
-            --bot-token "$TELEGRAM_BOT_TOKEN_CFG" ); then
-        ok "Telegram channel enabled."
-        if [[ -n "$TELEGRAM_CHAT_ID_CFG" ]]; then
-            ok "Note: telegram_chat_id is set in config but not needed at registration."
-        fi
-        ok "Now message your bot on Telegram with /start so it can talk back."
-    else
-        warn "Failed to enable Telegram channel. Try manually:"
-        warn "  openclaw channels add --channel telegram --bot-token <token>"
+
+    step "Restarting OpenClaw gateway to pick up Telegram"
+    if has systemctl && systemctl --user list-unit-files 2>/dev/null | grep -q '^openclaw-gateway'; then
+        systemctl --user restart openclaw-gateway && ok "openclaw-gateway restarted."
+    elif has openclaw; then
+        # Gateway not under systemd-user; tell the user how to restart it.
+        ok "Gateway not running under systemd --user. If a gateway is already running,"
+        ok "stop it (Ctrl+C in its terminal or 'pkill -f openclaw') and start a fresh one:"
+        ok "  openclaw gateway"
     fi
+
+    ok "Next: open Telegram, send /start to your bot, then approve the pairing:"
+    ok "  openclaw pairing list telegram"
+    ok "  openclaw pairing approve telegram <CODE>"
     return 0
 }
 
