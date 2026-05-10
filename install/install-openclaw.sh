@@ -232,7 +232,10 @@ install_npm() {
     step "Installing OpenClaw via npm (global)"
     if npm ls -g --depth=0 openclaw >/dev/null 2>&1 && [[ "$FORCE" -eq 0 ]]; then
         ok "openclaw already installed globally; updating."
-        npm update -g openclaw
+        if ! npm update -g openclaw 2>/dev/null; then
+            warn "Global update without sudo failed; retrying with sudo."
+            sudo npm update -g openclaw
+        fi
     else
         if ! npm install -g openclaw 2>/dev/null; then
             warn "Global install without sudo failed; retrying with sudo."
