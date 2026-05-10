@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Automated installer for AgentLedger (https://agentledger.ai)
+# Automated installer for OpenClaw (https://openclaw.ai)
 # Works on macOS, Linux, and WSL / Git Bash on Windows.
 #
 # Configuration is read from a key=value config file (default:
-# agentledger-install.config alongside this script). CLI flags override config.
+# openclaw-install.config alongside this script). CLI flags override config.
 #
 # Usage:
-#   ./install-agentledger.sh                       # use agentledger-install.config
-#   ./install-agentledger.sh --config my.cfg       # custom config file
-#   ./install-agentledger.sh --method npm          # override method
-#   ./install-agentledger.sh --method git --force
-#   ./install-agentledger.sh --skip-onboard
-#   ./install-agentledger.sh --channel dev
+#   ./install-openclaw.sh                       # use openclaw-install.config
+#   ./install-openclaw.sh --config my.cfg       # custom config file
+#   ./install-openclaw.sh --method npm          # override method
+#   ./install-openclaw.sh --method git --force
+#   ./install-openclaw.sh --skip-onboard
+#   ./install-openclaw.sh --channel dev
 #
 # Refuses to run as root; uses sudo only when needed.
 
@@ -20,7 +20,7 @@ set -euo pipefail
 # --- defaults (overridable by config file, then by CLI) -------------------
 
 METHOD="oneline"
-INSTALL_DIR="${HOME}/agentledger"
+INSTALL_DIR="${HOME}/openclaw"
 SKIP_ONBOARD=0
 FORCE=0
 MIN_NODE_MAJOR=20
@@ -105,7 +105,7 @@ done
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 if [[ -z "$CONFIG_FILE" ]]; then
-    CONFIG_FILE="${script_dir}/agentledger-install.config"
+    CONFIG_FILE="${script_dir}/openclaw-install.config"
 fi
 
 read_config() {
@@ -221,25 +221,25 @@ ensure_npm() {
 # --- install methods ------------------------------------------------------
 
 install_oneline() {
-    step "Running official AgentLedger installer"
+    step "Running official OpenClaw installer"
     ensure_curl
-    curl -fsSL https://agentledger.ai/install.sh | bash
+    curl -fsSL https://openclaw.ai/install.sh | bash
 }
 
 install_npm() {
     ensure_node
     ensure_npm
-    step "Installing AgentLedger via npm (global)"
-    if npm ls -g --depth=0 agentledger >/dev/null 2>&1 && [[ "$FORCE" -eq 0 ]]; then
-        ok "agentledger already installed globally; updating."
-        npm update -g agentledger
+    step "Installing OpenClaw via npm (global)"
+    if npm ls -g --depth=0 openclaw >/dev/null 2>&1 && [[ "$FORCE" -eq 0 ]]; then
+        ok "openclaw already installed globally; updating."
+        npm update -g openclaw
     else
-        if ! npm install -g agentledger 2>/dev/null; then
+        if ! npm install -g openclaw 2>/dev/null; then
             warn "Global install without sudo failed; retrying with sudo."
-            sudo npm install -g agentledger
+            sudo npm install -g openclaw
         fi
     fi
-    ok "agentledger npm package installed."
+    ok "openclaw npm package installed."
 }
 
 install_git() {
@@ -257,8 +257,8 @@ install_git() {
         fi
     fi
     if [[ ! -d "$INSTALL_DIR/.git" ]]; then
-        step "Cloning AgentLedger into $INSTALL_DIR"
-        git clone https://github.com/agentledger/agentledger.git "$INSTALL_DIR"
+        step "Cloning OpenClaw into $INSTALL_DIR"
+        git clone https://github.com/openclaw/openclaw.git "$INSTALL_DIR"
     fi
 
     step "Enabling corepack and installing workspace deps"
@@ -313,42 +313,42 @@ apply_secrets() {
 
 switch_channel() {
     [[ -z "$CHANNEL" ]] && return 0
-    step "Switching AgentLedger to '$CHANNEL' channel"
+    step "Switching OpenClaw to '$CHANNEL' channel"
     if [[ "$METHOD" == "git" ]]; then
-        ( cd "$INSTALL_DIR" && pnpm agentledger update --channel "$CHANNEL" )
+        ( cd "$INSTALL_DIR" && pnpm openclaw update --channel "$CHANNEL" )
     else
-        if has agentledger; then
-            agentledger update --channel "$CHANNEL"
+        if has openclaw; then
+            openclaw update --channel "$CHANNEL"
         else
-            warn "agentledger not on PATH yet; run later: agentledger update --channel $CHANNEL"
+            warn "openclaw not on PATH yet; run later: openclaw update --channel $CHANNEL"
         fi
     fi
 }
 
 run_onboard() {
     if [[ "$SKIP_ONBOARD" -eq 1 ]]; then
-        ok "Skipping onboarding (skip_onboard=true). Run 'agentledger onboard' when ready."
+        ok "Skipping onboarding (skip_onboard=true). Run 'openclaw onboard' when ready."
         return
     fi
-    step "Starting AgentLedger onboarding"
+    step "Starting OpenClaw onboarding"
     ok "This is interactive; answer the prompts to meet your lobster."
     # shellcheck disable=SC2206
     local extra=( $ONBOARD_ARGS )
     if [[ "$METHOD" == "git" ]]; then
-        ( cd "$INSTALL_DIR" && pnpm agentledger onboard "${extra[@]}" )
+        ( cd "$INSTALL_DIR" && pnpm openclaw onboard "${extra[@]}" )
     else
-        if ! has agentledger; then
-            warn "agentledger not on PATH yet; open a fresh terminal and run: agentledger onboard"
+        if ! has openclaw; then
+            warn "openclaw not on PATH yet; open a fresh terminal and run: openclaw onboard"
             return
         fi
-        agentledger onboard "${extra[@]}"
+        openclaw onboard "${extra[@]}"
     fi
 }
 
 # --- main -----------------------------------------------------------------
 
 printf '\n%s+--------------------------------------------+%s\n' "$c_magenta" "$c_reset"
-printf '%s|        AgentLedger Automated Installer        |%s\n'   "$c_magenta" "$c_reset"
+printf '%s|        OpenClaw Automated Installer        |%s\n'   "$c_magenta" "$c_reset"
 printf '%s+--------------------------------------------+%s\n'   "$c_magenta" "$c_reset"
 if [[ -f "$CONFIG_FILE" ]]; then
     printf '%s    config:  %s%s\n' "$c_dim" "$CONFIG_FILE" "$c_reset"
@@ -371,4 +371,4 @@ warn_config_perms "$CONFIG_FILE"
 apply_secrets
 run_onboard
 
-ok "Done. Docs: https://docs.agentledger.ai/getting-started"
+ok "Done. Docs: https://docs.openclaw.ai/getting-started"

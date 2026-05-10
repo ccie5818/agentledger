@@ -1,25 +1,25 @@
 <#
 .SYNOPSIS
-  Automated installer for AgentLedger (https://agentledger.ai) on Windows.
+  Automated installer for OpenClaw (https://openclaw.ai) on Windows.
 
 .DESCRIPTION
-  Installs AgentLedger — the open-source personal AI assistant by Peter Steinberger.
+  Installs OpenClaw — the open-source personal AI assistant by Peter Steinberger.
   Configuration is read from a key=value config file (default:
-  agentledger-install.config next to this script). Any CLI parameter overrides
+  openclaw-install.config next to this script). Any CLI parameter overrides
   the corresponding config value.
 
   Steps:
     1. Verify Node.js (>= min_node_major). Install LTS via winget if missing
        and auto_install_node=true.
     2. Verify npm.
-    3. Install (or update) AgentLedger using the chosen method.
+    3. Install (or update) OpenClaw using the chosen method.
     4. Optionally switch release channel.
-    5. Optionally run `agentledger onboard`.
+    5. Optionally run `openclaw onboard`.
 
   Re-running is safe: the script skips work that's already done.
 
 .PARAMETER ConfigFile
-  Path to the config file. Defaults to agentledger-install.config alongside
+  Path to the config file. Defaults to openclaw-install.config alongside
   this script. If the file is missing, built-in defaults are used.
 
 .PARAMETER Method
@@ -38,9 +38,9 @@
   Override `channel=` to switch release channels after install (stable|dev).
 
 .EXAMPLE
-  .\install-agentledger.ps1
-  .\install-agentledger.ps1 -ConfigFile .\my-agentledger.config
-  .\install-agentledger.ps1 -Method git -SkipOnboard
+  .\install-openclaw.ps1
+  .\install-openclaw.ps1 -ConfigFile .\my-openclaw.config
+  .\install-openclaw.ps1 -Method git -SkipOnboard
 #>
 [CmdletBinding()]
 param(
@@ -117,14 +117,14 @@ function Read-ConfigFile {
 
 # Resolve config file path: explicit -> next to script -> none.
 if (-not $ConfigFile) {
-    $ConfigFile = Join-Path $PSScriptRoot 'agentledger-install.config'
+    $ConfigFile = Join-Path $PSScriptRoot 'openclaw-install.config'
 }
 $cfg = Read-ConfigFile -Path $ConfigFile
 
 # Merge config + CLI. CLI wins when explicitly bound.
 $bound = $PSBoundParameters
 $effMethod      = if ($bound.ContainsKey('Method')      -and $Method)     { $Method }     elseif ($cfg.method)      { $cfg.method }      else { 'npm' }
-$effInstallDir  = if ($bound.ContainsKey('InstallDir')  -and $InstallDir) { $InstallDir } elseif ($cfg.install_dir) { Expand-Path $cfg.install_dir } else { Join-Path $HOME 'agentledger' }
+$effInstallDir  = if ($bound.ContainsKey('InstallDir')  -and $InstallDir) { $InstallDir } elseif ($cfg.install_dir) { Expand-Path $cfg.install_dir } else { Join-Path $HOME 'openclaw' }
 $effSkipOnboard = if ($bound.ContainsKey('SkipOnboard'))                  { [bool]$SkipOnboard } else { ConvertTo-Bool $cfg.skip_onboard $false }
 $effForce       = if ($bound.ContainsKey('Force'))                        { [bool]$Force }       else { ConvertTo-Bool $cfg.force $false }
 $effChannel     = if ($bound.ContainsKey('Channel'))                      { $Channel }           elseif ($cfg.channel) { $cfg.channel } else { '' }
@@ -197,26 +197,26 @@ function Ensure-Npm {
 
 # --- install methods ------------------------------------------------------
 
-function Install-AgentLedgerViaNpm {
-    Write-Step 'Installing AgentLedger via npm (global)'
+function Install-OpenClawViaNpm {
+    Write-Step 'Installing OpenClaw via npm (global)'
     $already = $false
     try {
         $list = & npm ls -g --depth=0 --json 2>$null | ConvertFrom-Json
-        if ($list.dependencies.agentledger) { $already = $true }
+        if ($list.dependencies.openclaw) { $already = $true }
     } catch { }
 
     if ($already -and -not $effForce) {
-        Write-Ok 'agentledger already installed globally — running update.'
-        & npm update -g agentledger
+        Write-Ok 'openclaw already installed globally — running update.'
+        & npm update -g openclaw
     } else {
-        & npm install -g agentledger
+        & npm install -g openclaw
     }
     if ($LASTEXITCODE -ne 0) { throw "npm install failed (exit $LASTEXITCODE)" }
-    Write-Ok 'agentledger npm package installed.'
+    Write-Ok 'openclaw npm package installed.'
 }
 
-function Install-AgentLedgerFromGit {
-    Write-Step "Cloning AgentLedger into $effInstallDir"
+function Install-OpenClawFromGit {
+    Write-Step "Cloning OpenClaw into $effInstallDir"
     if (-not (Test-Command git)) {
         throw 'git is required for method=git. Install Git for Windows: https://git-scm.com/download/win'
     }
@@ -231,7 +231,7 @@ function Install-AgentLedgerFromGit {
         }
     }
     if (-not (Test-Path $effInstallDir)) {
-        & git clone https://github.com/agentledger/agentledger.git $effInstallDir
+        & git clone https://github.com/openclaw/openclaw.git $effInstallDir
         if ($LASTEXITCODE -ne 0) { throw 'git clone failed' }
     }
 
@@ -245,10 +245,10 @@ function Install-AgentLedgerFromGit {
     Write-Ok "Source install ready at $effInstallDir"
 }
 
-function Install-AgentLedgerOneLiner {
+function Install-OpenClawOneLiner {
     Write-Step 'Running official one-liner (requires Git Bash or WSL)'
-    if     (Test-Command bash)    { & bash -c 'curl -fsSL https://agentledger.ai/install.sh | bash' }
-    elseif (Test-Command 'wsl')   { & wsl bash -c 'curl -fsSL https://agentledger.ai/install.sh | bash' }
+    if     (Test-Command bash)    { & bash -c 'curl -fsSL https://openclaw.ai/install.sh | bash' }
+    elseif (Test-Command 'wsl')   { & wsl bash -c 'curl -fsSL https://openclaw.ai/install.sh | bash' }
     else {
         throw 'Need bash on PATH (Git Bash) or WSL for method=oneline.'
     }
@@ -296,22 +296,22 @@ function Apply-Secrets {
 
 function Switch-Channel {
     if (-not $effChannel) { return }
-    Write-Step "Switching AgentLedger to '$effChannel' channel"
+    Write-Step "Switching OpenClaw to '$effChannel' channel"
     if ($effMethod -eq 'git') {
         Push-Location $effInstallDir
-        try { & pnpm agentledger update --channel $effChannel } finally { Pop-Location }
+        try { & pnpm openclaw update --channel $effChannel } finally { Pop-Location }
     } else {
-        & agentledger update --channel $effChannel
+        & openclaw update --channel $effChannel
     }
 }
 
 function Invoke-Onboard {
     if ($effSkipOnboard) {
         Write-Ok 'Skipping onboarding (skip_onboard=true).'
-        Write-Ok 'When ready, run: agentledger onboard'
+        Write-Ok 'When ready, run: openclaw onboard'
         return
     }
-    Write-Step 'Starting AgentLedger onboarding'
+    Write-Step 'Starting OpenClaw onboarding'
     Write-Ok 'This is interactive — answer the prompts to meet your lobster.'
     $argList = @()
     if ($effOnboardArgs) {
@@ -319,9 +319,9 @@ function Invoke-Onboard {
     }
     if ($effMethod -eq 'git') {
         Push-Location $effInstallDir
-        try { & pnpm agentledger onboard @argList } finally { Pop-Location }
+        try { & pnpm openclaw onboard @argList } finally { Pop-Location }
     } else {
-        & agentledger onboard @argList
+        & openclaw onboard @argList
     }
 }
 
@@ -329,7 +329,7 @@ function Invoke-Onboard {
 
 Write-Host ''
 Write-Host '+--------------------------------------------+' -ForegroundColor Magenta
-Write-Host '|        AgentLedger Automated Installer        |' -ForegroundColor Magenta
+Write-Host '|        OpenClaw Automated Installer        |' -ForegroundColor Magenta
 Write-Host '+--------------------------------------------+' -ForegroundColor Magenta
 if (Test-Path $ConfigFile) {
     Write-Host "    config:  $ConfigFile" -ForegroundColor DarkGray
@@ -344,7 +344,7 @@ Write-Host ''
 try {
     switch ($effMethod) {
         'oneline' {
-            Install-AgentLedgerOneLiner
+            Install-OpenClawOneLiner
         }
         'git' {
             Ensure-Node
@@ -353,12 +353,12 @@ try {
                 Write-Step 'Installing pnpm globally'
                 & npm install -g pnpm
             }
-            Install-AgentLedgerFromGit
+            Install-OpenClawFromGit
         }
         default {
             Ensure-Node
             Ensure-Npm
-            Install-AgentLedgerViaNpm
+            Install-OpenClawViaNpm
         }
     }
 
@@ -368,7 +368,7 @@ try {
     Invoke-Onboard
 
     Write-Host ''
-    Write-Ok 'Done. Docs: https://docs.agentledger.ai/getting-started'
+    Write-Ok 'Done. Docs: https://docs.openclaw.ai/getting-started'
 }
 catch {
     Write-Err $_.Exception.Message
