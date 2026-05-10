@@ -138,6 +138,9 @@ $Secrets = @(
     @{ Env = 'OPENAI_API_KEY';      Key = 'openai_api_key';      Label = 'OpenAI API key'    }
     @{ Env = 'TELEGRAM_BOT_TOKEN';  Key = 'telegram_bot_token';  Label = 'Telegram bot token'}
 )
+# Telegram chat/recipient ID for auto-enabling the channel (not a secret per se,
+# but read from the same config). Leave blank to skip auto-enabling.
+$TelegramChatId = if ($cfg.telegram_chat_id) { $cfg.telegram_chat_id } else { '' }
 
 if ($effMethod -notin @('npm', 'git', 'oneline')) {
     Write-Err "Invalid method '$effMethod' (use: npm | git | oneline)"
@@ -325,6 +328,42 @@ function Invoke-Onboard {
     }
 }
 
+# Auto-enable the Telegram channel if a bot token is configured.
+# Telegram chat is auto-discovered by the bot the first time the user sends
+# /start to it from Telegram; OpenClaw doesn't take a chat-id at registration.
+function Enable-TelegramChannel {
+    $token = $cfg['telegram_bot_token']
+    if (-not $token) { return }
+    if (-not (Test-Command openclaw) -and $effMethod -ne 'git') {
+        Write-Warning2 "openclaw not on PATH yet; can't auto-enable Telegram. After install, run:"
+        Write-Warning2 "  openclaw channels add --channel telegram --bot-token <token>"
+        return
+    }
+    Write-Step 'Enabling Telegram channel'
+    $cmdArgs = @('channels', 'add', '--channel', 'telegram', '--bot-token', $token)
+    try {
+        if ($effMethod -eq 'git') {
+            Push-Location $effInstallDir
+            & pnpm openclaw @cmdArgs
+        } else {
+            & openclaw @cmdArgs
+        }
+        $code = $LASTEXITCODE
+    } finally {
+        if ($effMethod -eq 'git') { Pop-Location }
+    }
+    if ($code -eq 0) {
+        Write-Ok 'Telegram channel enabled.'
+        if ($TelegramChatId) {
+            Write-Ok 'Note: telegram_chat_id is set in config but not needed at registration.'
+        }
+        Write-Ok 'Now message your bot on Telegram with /start so it can talk back.'
+    } else {
+        Write-Warning2 'Failed to enable Telegram channel. Try manually:'
+        Write-Warning2 '  openclaw channels add --channel telegram --bot-token <token>'
+    }
+}
+
 # --- main -----------------------------------------------------------------
 
 Write-Host ''
@@ -366,6 +405,7 @@ try {
     Warn-ConfigFilePermissions -Path $ConfigFile
     Apply-Secrets
     Invoke-Onboard
+    Enable-TelegramChannel
 
     Write-Host ''
     Write-Ok 'Done. Docs: https://docs.openclaw.ai/getting-started'

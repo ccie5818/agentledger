@@ -33,6 +33,7 @@ CONFIG_FILE=""
 ANTHROPIC_API_KEY_CFG=""
 OPENAI_API_KEY_CFG=""
 TELEGRAM_BOT_TOKEN_CFG=""
+TELEGRAM_CHAT_ID_CFG=""
 
 # Track which fields were explicitly set on the CLI so they win over config.
 declare -A CLI_SET=()
@@ -139,6 +140,7 @@ read_config() {
             anthropic_api_key)  ANTHROPIC_API_KEY_CFG="$val" ;;
             openai_api_key)     OPENAI_API_KEY_CFG="$val" ;;
             telegram_bot_token) TELEGRAM_BOT_TOKEN_CFG="$val" ;;
+            telegram_chat_id)   TELEGRAM_CHAT_ID_CFG="$val" ;;
             *) warn "unknown config key '$key' (ignored)" ;;
         esac
     done < "$file"
@@ -348,6 +350,38 @@ run_onboard() {
     fi
 }
 
+# Auto-enable the Telegram channel if a bot token is configured.
+# Telegram chat is auto-discovered by the bot the first time the user sends
+# /start to it from Telegram; OpenClaw doesn't take a chat-id at registration.
+enable_telegram_channel() {
+    [[ -z "$TELEGRAM_BOT_TOKEN_CFG" ]] && return 0
+    if ! has openclaw && [[ "$METHOD" != "git" ]]; then
+        warn "openclaw not on PATH yet; can't auto-enable Telegram. After install, run:"
+        warn "  openclaw channels add --channel telegram --bot-token <token>"
+        return 0
+    fi
+    step "Enabling Telegram channel"
+    local oc_cmd
+    if [[ "$METHOD" == "git" ]]; then
+        oc_cmd=( pnpm openclaw )
+    else
+        oc_cmd=( openclaw )
+    fi
+    if ( cd "${INSTALL_DIR:-.}" && "${oc_cmd[@]}" channels add \
+            --channel telegram \
+            --bot-token "$TELEGRAM_BOT_TOKEN_CFG" ); then
+        ok "Telegram channel enabled."
+        if [[ -n "$TELEGRAM_CHAT_ID_CFG" ]]; then
+            ok "Note: telegram_chat_id is set in config but not needed at registration."
+        fi
+        ok "Now message your bot on Telegram with /start so it can talk back."
+    else
+        warn "Failed to enable Telegram channel. Try manually:"
+        warn "  openclaw channels add --channel telegram --bot-token <token>"
+    fi
+    return 0
+}
+
 # --- main -----------------------------------------------------------------
 
 printf '\n%s+--------------------------------------------+%s\n' "$c_magenta" "$c_reset"
@@ -373,5 +407,6 @@ switch_channel
 warn_config_perms "$CONFIG_FILE"
 apply_secrets
 run_onboard
+enable_telegram_channel
 
 ok "Done. Docs: https://docs.openclaw.ai/getting-started"
