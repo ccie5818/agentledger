@@ -1,0 +1,27 @@
+[Unit]
+Description=OpenClaw + Telegram local status dashboard
+Documentation=https://docs.openclaw.ai/channels/telegram
+After=network-online.target
+# Soft dependency: start after the OpenClaw gateway if it's a user service.
+Wants=openclaw-gateway.service
+After=openclaw-gateway.service
+
+[Service]
+Type=simple
+# Path to the dashboard script. install-dashboard.sh substitutes the absolute
+# path at install time; we leave a sensible default here for the manual case.
+ExecStart=/usr/bin/env node %h/.openclaw/dashboard/dashboard.js
+Restart=on-failure
+RestartSec=5
+# Default bind is 0.0.0.0 so the dashboard is reachable from your LAN.
+# Auth is required (cookie session) but the first-boot credentials are
+# admin/admin and the model/key form is destructive — change the password
+# on first login. Override with DASHBOARD_HOST=127.0.0.1 to bind locally only
+# (use `systemctl --user edit openclaw-dashboard`).
+Environment=DASHBOARD_HOST=0.0.0.0
+Environment=DASHBOARD_PORT=18790
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
