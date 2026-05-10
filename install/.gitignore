@@ -1,0 +1,11 @@
+# Local override config files (use these to hold real secrets)
+agentledger-install.local.config
+agentledger-install.*.local.config
+*.local.config
+*.secrets
+*.secrets.config
+
+# Tooling junk
+.DS_Store
+Thumbs.db
+*.log
