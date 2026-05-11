@@ -496,6 +496,13 @@ async function gatherStatus() {
     // never read values). We deliberately filter to env vars that look like
     // API keys so unrelated entries (e.g. PATH overrides, debug flags) don't
     // show up under the "Provider keys" label.
+    //
+    // The custom env var that was saved alongside a custom model is read from
+    // openclaw.json and allowlisted here so it shows up even if its name
+    // doesn't match the usual `_API_KEY` suffix.
+    const customEnvVarName = (cfg.agents && cfg.agents.defaults && cfg.agents.defaults.model
+        && typeof cfg.agents.defaults.model.customEnvVar === 'string')
+        ? cfg.agents.defaults.model.customEnvVar : null;
     const knownProviderEnvVars = new Set(Object.values(PROVIDER_ENV));
     const envKeysPresent = {};
     try {
@@ -504,7 +511,7 @@ async function gatherStatus() {
             const m = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/);
             if (!m) continue;
             const name = m[1];
-            if (knownProviderEnvVars.has(name) || /_API_KEY$/.test(name)) {
+            if (knownProviderEnvVars.has(name) || /_API_KEY$/.test(name) || name === customEnvVarName) {
                 envKeysPresent[name] = true;
             }
         }
@@ -568,6 +575,7 @@ async function gatherStatus() {
             provider: modelProvider,
             name: modelName,
             envKeysPresent,
+            customEnvVar: customEnvVarName,
         },
         telegram,
         sessions: {
@@ -719,7 +727,11 @@ function renderPage(status) {
         <dt>Current model</dt><dd>${htmlEscape(status.model.primary || '— (not set)')}</dd>
         <dt>Provider keys</dt><dd>${
             Object.keys(status.model.envKeysPresent).length
-                ? Object.keys(status.model.envKeysPresent).map((k) => '<span class="badge ok" style="margin-right:4px">' + htmlEscape(k) + '</span>').join('')
+                ? Object.keys(status.model.envKeysPresent).map((k) => {
+                      const isCustom = status.model.customEnvVar && k === status.model.customEnvVar;
+                      const label = isCustom ? htmlEscape(k) + ' (custom)' : htmlEscape(k);
+                      return '<span class="badge ok" style="margin-right:4px" title="' + (isCustom ? 'custom env var for the current model' : 'recognized provider key') + '">' + label + '</span>';
+                  }).join('')
                 : '<span class="muted">(none in ~/.openclaw/.env)</span>'
         }</dd>
       </dl>
@@ -1302,6 +1314,15 @@ const server = http.createServer(async (req, res) => {
             cfg.agents.defaults.model = cfg.agents.defaults.model || {};
             const modelRef = (provider === 'custom' || model.includes('/')) ? model : (provider + '/' + model);
             cfg.agents.defaults.model.primary = modelRef;
+            // Remember which env var a custom provider uses so the Provider Keys
+            // badge can surface it on subsequent renders even if it doesn't match
+            // the "_API_KEY" suffix. Clear it when switching back to a known
+            // provider so stale entries don't linger.
+            if (provider === 'custom' && customEnvVar) {
+                cfg.agents.defaults.model.customEnvVar = customEnvVar;
+            } else if (provider !== 'custom' && cfg.agents.defaults.model.customEnvVar) {
+                delete cfg.agents.defaults.model.customEnvVar;
+            }
             try {
                 fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
                 fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
