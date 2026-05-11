@@ -658,6 +658,10 @@ function renderPage(status) {
     const providerModels = JSON.stringify(PROVIDER_MODELS);
     const currentModel = JSON.stringify(status.model.name || '');
     const currentProvider = JSON.stringify(status.model.provider || '');
+    // Full saved model ref (e.g. "ollama/qwen3.5:latest") — used to pre-fill
+    // the "Other…" text input when the saved provider is custom so the user
+    // sees their model on reload instead of an empty field.
+    const currentModelFull = JSON.stringify(status.model.primary || '');
 
     return `<!doctype html>
 <html lang="en">
@@ -740,7 +744,7 @@ function renderPage(status) {
           <select name="provider" id="modelProvider" style="flex:1; min-width:140px;">
             ${providerOptions}
           </select>
-          <input type="text" name="customEnvVar" id="customEnvVar" placeholder="CUSTOM_API_KEY" style="flex:1; display:none;">
+          <input type="text" name="customEnvVar" id="customEnvVar" placeholder="CUSTOM_API_KEY" value="${htmlEscape(status.model.customEnvVar || '')}" style="flex:1; display:none;">
         </div>
         <select name="modelSelect" id="modelSelect"></select>
         <input type="text" name="modelCustom" id="modelCustom" placeholder="${htmlEscape(PROVIDER_MODEL_HINT[status.model.provider] || 'model-id')}" style="display:none;">
@@ -761,6 +765,7 @@ function renderPage(status) {
           const MODELS = ${providerModels};
           const CURRENT_MODEL = ${currentModel};
           const CURRENT_PROVIDER = ${currentProvider};
+          const CURRENT_MODEL_FULL = ${currentModelFull};
           const provSel = document.getElementById('modelProvider');
           const cust    = document.getElementById('customEnvVar');
           const mdlSel  = document.getElementById('modelSelect');
@@ -798,8 +803,11 @@ function renderPage(status) {
             mdlSel.appendChild(other);
 
             // For custom provider, force "Other…" + show the text input.
+            // Pre-fill it with the full saved ref (e.g. "ollama/qwen3.5:latest")
+            // so a reload doesn't silently lose what's already configured.
             if (p === 'custom') {
               other.selected = true;
+              if (CURRENT_MODEL_FULL) mdlCust.value = CURRENT_MODEL_FULL;
             }
             syncCustomModel();
           }
