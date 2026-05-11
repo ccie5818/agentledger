@@ -729,15 +729,35 @@ function renderPage(status) {
       <h2>Model & API key</h2>
       <dl>
         <dt>Current model</dt><dd>${htmlEscape(status.model.primary || '— (not set)')}</dd>
-        <dt>Provider keys</dt><dd>${
-            Object.keys(status.model.envKeysPresent).length
-                ? Object.keys(status.model.envKeysPresent).map((k) => {
-                      const isCustom = status.model.customEnvVar && k === status.model.customEnvVar;
-                      const label = isCustom ? htmlEscape(k) + ' (custom)' : htmlEscape(k);
-                      return '<span class="badge ok" style="margin-right:4px" title="' + (isCustom ? 'custom env var for the current model' : 'recognized provider key') + '">' + label + '</span>';
-                  }).join('')
-                : '<span class="muted">(none in ~/.openclaw/.env)</span>'
-        }</dd>
+        <dt>Provider key</dt><dd>${(() => {
+            // Which env var is actually tied to the CURRENT model? Recognized
+            // providers map via PROVIDER_ENV; everything else falls back to
+            // the customEnvVar saved alongside the model.
+            const activeEnvVar = (status.model.provider && PROVIDER_ENV[status.model.provider])
+                || status.model.customEnvVar
+                || null;
+            const present = activeEnvVar && status.model.envKeysPresent[activeEnvVar];
+            const isCustom = activeEnvVar && status.model.customEnvVar === activeEnvVar;
+            let html;
+            if (!activeEnvVar) {
+                html = '<span class="muted">(no provider configured for the current model — pick a provider and save)</span>';
+            } else if (present) {
+                html = '<span class="badge ok" title="' + (isCustom ? 'custom env var for the current model' : 'recognized provider key') + '">'
+                    + htmlEscape(activeEnvVar) + (isCustom ? ' (custom)' : '') + ' ✓</span>';
+            } else {
+                html = '<span class="badge err" title="env var expected but not found in ~/.openclaw/.env">'
+                    + htmlEscape(activeEnvVar) + (isCustom ? ' (custom)' : '') + ' MISSING</span>';
+            }
+            // Any other recognized keys that are present in .env but not tied
+            // to the current model — surfaced as a muted hint so the user
+            // knows they exist (e.g. ANTHROPIC_API_KEY still on file after
+            // switching to a local model).
+            const others = Object.keys(status.model.envKeysPresent).filter((k) => k !== activeEnvVar);
+            if (others.length) {
+                html += '<div class="muted" style="margin-top:4px; font-size:12px;">Also in <code>~/.openclaw/.env</code>: ' + others.map(htmlEscape).join(', ') + '</div>';
+            }
+            return html;
+        })()}</dd>
       </dl>
       <form id="modelForm" style="margin-top:12px">
         <div class="row">
