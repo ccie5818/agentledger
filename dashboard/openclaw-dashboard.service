@@ -18,6 +18,13 @@ RestartSec=5
 # admin/admin and the model/key form is destructive — change the password
 # on first login. Override with DASHBOARD_HOST=127.0.0.1 to bind locally only
 # (use `systemctl --user edit openclaw-dashboard`).
+# The systemd --user environment ships with a minimal PATH that doesn't
+# include npm-global / user-local bin dirs, so `openclaw` (typically installed
+# at ~/.npm-global/bin/openclaw or ~/.local/bin/openclaw) wouldn't be found
+# by execFile() and the dashboard's OpenClaw card would render "UNREACHABLE
+# ENOENT". Pre-populate PATH with the usual locations so the CLI is found
+# out of the box. %h expands to the user's home directory.
+Environment=PATH=%h/.npm-global/bin:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 Environment=DASHBOARD_HOST=0.0.0.0
 Environment=DASHBOARD_PORT=18790
 StandardOutput=journal

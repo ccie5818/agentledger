@@ -150,7 +150,18 @@ Service stops when you log out:
 sudo loginctl enable-linger $USER
 ```
 
-Dashboard says "OpenClaw CLI unreachable":
+Dashboard says "OpenClaw CLI unreachable" (e.g. `UNREACHABLE ENOENT`):
 
-- check `which openclaw` from the same user
-- the systemd user environment may not have OpenClaw on `PATH`; in that case, edit the unit (`systemctl --user edit openclaw-dashboard`) and add `Environment=P
+The unit ships with `Environment=PATH=%h/.npm-global/bin:%h/.local/bin:/usr/local/bin:/usr/bin:/bin`, which covers the standard install locations. If you still see `ENOENT`:
+
+- Confirm OpenClaw is installed for this user: `which openclaw` — should print something like `/home/ubuntu/.npm-global/bin/openclaw`. If it prints nothing, install OpenClaw first.
+- If `which openclaw` points to a directory **not** in the default PATH above (e.g. `/opt/openclaw/bin`), extend the unit's PATH with `systemctl --user edit openclaw-dashboard` and add:
+
+  ```ini
+  [Service]
+  Environment=PATH=/opt/openclaw/bin:/home/ubuntu/.npm-global/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+  ```
+
+  (Drop-ins replace the inherited `Environment=PATH=` value, so include the defaults you still need.)
+
+- After editing, reload + restart: `systemctl --user daemon-reload && systemctl --user restart openclaw-dashboard`.
