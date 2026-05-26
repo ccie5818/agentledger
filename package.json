@@ -1,0 +1,13 @@
+{
+  "name": "marketplace-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@aws-amplify/backend": "^1.0.0",
+    "@aws-amplify/backend-cli": "^1.0.0",
+    "@types/aws-lambda": "^8.10.161",
+    "@types/node": "^25.6.0",
+    "typescript": "^5.4.0"
+  }
+}
