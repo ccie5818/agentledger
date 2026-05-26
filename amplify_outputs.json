@@ -1,9 +1,9 @@
 {
   "auth": {
-    "user_pool_id": "us-east-1_m8Dwudf8Z",
+    "user_pool_id": "us-east-1_l31rwksob",
     "aws_region": "us-east-1",
-    "user_pool_client_id": "nas5dr1v47v4u9k1dd67lt5li",
-    "identity_pool_id": "us-east-1:e58709a7-4cf8-4723-a1a7-85c1da9d8654",
+    "user_pool_client_id": "2pboak597cb8u162duqkn6m2vs",
+    "identity_pool_id": "us-east-1:42d13454-67b8-4db0-8429-9baaa22a6f76",
     "mfa_methods": [],
     "standard_required_attributes": [
       "email"
@@ -26,9 +26,9 @@
     "unauthenticated_identities_enabled": true
   },
   "data": {
-    "url": "https://mjp4m5nujjhphpxenuncwikwqy.appsync-api.us-east-1.amazonaws.com/graphql",
+    "url": "https://rgqac7bvn5dwxgsbqj2uhsr6fq.appsync-api.us-east-1.amazonaws.com/graphql",
     "aws_region": "us-east-1",
-    "api_key": "da2-iost4gqdrbfczabvqqc7oqdl7q",
+    "api_key": "da2-nkvpnbo55ravfcda7blrqsmwcq",
     "default_authorization_type": "AMAZON_COGNITO_USER_POOLS",
     "authorization_types": [
       "API_KEY",
@@ -676,11 +676,11 @@
   },
   "storage": {
     "aws_region": "us-east-1",
-    "bucket_name": "amplify-marketplaceapp-ad-marketplacephotosbucketd-qjqrahjqoqb1",
+    "bucket_name": "amplify-d1hbgyfoycljcz-ma-marketplacephotosbucketd-9njr3jtq2oig",
     "buckets": [
       {
         "name": "marketplacePhotos",
-        "bucket_name": "amplify-marketplaceapp-ad-marketplacephotosbucketd-qjqrahjqoqb1",
+        "bucket_name": "amplify-d1hbgyfoycljcz-ma-marketplacephotosbucketd-9njr3jtq2oig",
         "aws_region": "us-east-1",
         "paths": {
           "listings/*": {
