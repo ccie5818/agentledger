@@ -16,7 +16,6 @@ export const auth = defineAuth({
     email: {
       fromEmail: "noreply@dfmi.app",
       fromName: "AgentLedger",
-      sesVerifiedDomain: "dfmi.app",
     },
   },
 });
